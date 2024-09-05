@@ -24,7 +24,7 @@ class MyClient(discord.Client):
         # klaxon word finder
         if self.word and (self.word in message.content.lower()):
             self.usr = message.author
-            await message.channel.send(":camera_with_flash: The Klaxon word \'{0}\' was said by <@{1}> and earned them -10 points! :camera_with_flash:".format(self.word, message.author.id))
+            await message.channel.send("# :camera_with_flash: The Klaxon word \'{0}\' was said by <@{1}> and earned them -10 points! :camera_with_flash:".format(self.word, message.author.id))
             self.word = None
             await message.author.send("Please respond with a new Klaxon word. Choose wisely.")
             return
