@@ -1,6 +1,11 @@
 import discord
 import json
 
+import cv2
+import numpy as np
+from PIL import Image, ImageDraw, ImageFont
+from moviepy.editor import ImageClip, concatenate_videoclips, AudioFileClip
+
 with open('config.json') as f:
     data = json.load(f)
     token = data["TOKEN"]
@@ -39,7 +44,12 @@ class MyClient(discord.Client):
         # klaxon word finder
         if self.word and (self.word in message.content.lower()):
             self.usr = message.author
-            await message.channel.send("# :camera_with_flash: The Klaxon word \'{0}\' was said by <@{1}> and earned them -10 points! :camera_with_flash:".format(self.word, message.author.id))
+            
+            if self.word == "test":
+                await message.channel.send("# :camera_with_flash: The Klaxon word \'{0}\' was said by <@{1}> and earned them -10 points! :camera_with_flash:".format(self.word, message.author.id), file=discord.File("klaxon_test.mp4", filename="klaxon.mp4"))
+            else:
+                await message.channel.send("# :camera_with_flash: The Klaxon word \'{0}\' was said by <@{1}> and earned them -10 points! :camera_with_flash:".format(self.word, message.author.id), file=discord.File("klaxon.mp4", filename="klaxon.mp4"))
+
             self.word = None
             await message.author.send("Please respond with a new Klaxon word. Choose wisely.")
             print("{0} said by {1} in {2}".format(message.content, message.author.name, message.channel.name))
@@ -50,11 +60,72 @@ class MyClient(discord.Client):
             tempword = message.content.lower().strip()
             if tempword.isalpha():
                 self.word = tempword
+                await message.author.send("Setting word...")
+                self.generate_klaxon_mp4(self.word.upper()) # generate video
                 await message.author.send("You have selected \'{0}\' as the new Klaxon word.".format(self.word))
-                self.usr = None
             else:
                 await message.author.send("I said word. \'{0}\' isn't a word. Idiot.".format(tempword))
             return
+        
+
+    # make mp4 file
+
+    def generate_klaxon_mp4(self, klaxon_word):
+        def text2png(text):
+            width, height = 1417, 1072
+            max_width = width - 40  # margin
+            default_font_size = 200
+            min_font_size = 30 # minimum font size, no multiline text yet...
+
+            font_path = "FranklinGothic.ttf"
+            font_size = default_font_size
+            font = ImageFont.truetype(font_path, font_size)
+
+            image = Image.new('RGB', (width, height), color='black')
+            draw = ImageDraw.Draw(image)
+
+            # dynamic sizing
+            text_width = draw.textlength(text, font=font)
+            while text_width > max_width and font_size > min_font_size:
+                font_size -= 10  
+                font = ImageFont.truetype(font_path, font_size)
+                text_width = draw.textlength(text, font=font)
+
+            # centering
+            text_height = font_size
+            position = ((width - text_width) // 2, (height - text_height) // 2)
+
+            draw.text(position, text, font=font, fill="white")
+
+            return cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR) # convert back to opencv LOL
+
+        fps = 30
+        loop_duration = 0.5 # seconds
+        bitrate = "1024k"
+        codec = "libx264"
+        audio_bitrate = "128k"
+        output_file = "klaxon.mp4"
+
+        klaxon_on, klaxon_off = text2png(klaxon_word), text2png("")
+        clips=[]
+
+        for _ in range(5):
+            clips.append(ImageClip(klaxon_on).set_duration(loop_duration))
+            clips.append(ImageClip(klaxon_off).set_duration(loop_duration))
+        clips.append(ImageClip(klaxon_on).set_duration(loop_duration))
+
+        video = concatenate_videoclips(clips, method="compose")
+
+        audio_file = "klaxon.ogg"
+        audio = AudioFileClip(audio_file).subclip(0, video.duration)
+        video = video.set_audio(audio)
+
+        video.write_videofile(output_file, fps=fps, codec=codec, bitrate=bitrate, audio_bitrate=audio_bitrate)
+
+
+
+        
+
 
 intents = discord.Intents.default()
 intents.members = True
