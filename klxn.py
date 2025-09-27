@@ -157,6 +157,8 @@ class MyClient(discord.Client):
             min_font_size = 30 # minimum font size, no multiline text yet...
 
             font_path = "FranklinGothic.ttf"
+            if (re.match("^[ABCDEFGHIJKLMNOPQRSTUVWXYZ]*$", text) == False):
+                font_path = "FreeSansBold.otf"
             font_size = default_font_size
             font = ImageFont.truetype(font_path, font_size)
 
