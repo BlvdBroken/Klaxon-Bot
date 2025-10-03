@@ -128,7 +128,7 @@ class MyClient(discord.Client):
                     
         # if been 24h since said and not reset
         if (self.words[serverid][1] > 0) and (time.time() >= self.words[serverid][1] + 86400):  # 86400 is 24h
-            await self.get_user(self.words[serverid][2]).send("I haven't heard from you in 24 hours, resetting the word to \"klaxon\"")
+            await self.get_user(self.words[serverid][2]).send("I haven't heard from you in 24 hours, resetting the word to \"klaxon\".")
             self.words[serverid] = ("klaxon", 0, None, time.time())
             with sqlite3.connect("serverwords.db") as conn:
                 cursor = conn.cursor()
@@ -148,10 +148,10 @@ class MyClient(discord.Client):
             
             if command.startswith("help"):
                 await message.channel.send( \
-                    "**{0}prefix `s`** - changes the current prefix for commands to `s` (default is k!).\n" \
-                    "**{0}ignore** - Toggles whether future messages in the current channel will trigger the Klaxon\n" \
-                    "**{0}optout** - Toggles whether the command's author will trigger the Klaxon\n" \
-                    "**{0}timer** - Sets how long, in days, before an untriggered word is reset to 'klaxon' (default 30 days)".format(self.serverinfo[serverid][0]))
+                    "**{0}prefix `s`** - Changes the current prefix for commands to `s` (default is k!).\n" \
+                    "**{0}ignore** - Toggles whether future messages in the current channel can trigger the Klaxon.\n" \
+                    "**{0}optout** - Toggles whether the command's author can trigger the Klaxon.\n" \
+                    "**{0}timer** - Sets how long, in days, before an untriggered word is reset to 'klaxon' (default is 30 days)".format(self.serverinfo[serverid][0]))
             
             if command.startswith("prefix "):  # updates prefix
                 newpre = command.removeprefix("prefix ")
@@ -159,7 +159,7 @@ class MyClient(discord.Client):
                 with sqlite3.connect("serverwords.db") as conn:  # update db after ignore/unignore
                         cursor = conn.cursor()
                         cursor.execute('UPDATE serverinfo SET prefix = ? WHERE server_id = ?', (newpre, serverid))
-                await message.channel.send("The new prefix for this server is `{0}`".format(newpre))
+                await message.channel.send("The new prefix for this server is `{0}`.".format(newpre))
             
             if command.startswith("ignore"):  # ignores channels
                 ign = self.serverinfo[serverid][1]
