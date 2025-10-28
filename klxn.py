@@ -48,7 +48,7 @@ class MyClient(discord.Client):
 
     async def on_ready(self):
         print(f'Logged in as {self.user} (ID: {self.user.id})')
-        print("Klaxon Bot v1.1")
+        print("Klaxon Bot v1.1.1")
         # creates a SQLite 3 database if you don't have one
         try:
             with sqlite3.connect("serverwords.db") as conn:
@@ -115,7 +115,7 @@ class MyClient(discord.Client):
                 cursor.execute(self.find_serverinfo_table, (serverid,))
                 exists = cursor.fetchone()
                 if exists:
-                    if len(exists) != 5:  # hard coded in for every breaking update that changes db entry formnat to make previous db entries backwards compatible
+                    if len(exists) != 5:  # hard coded in for every breaking update that changes db entry format to make previous db entries backwards compatible
                         cursor.execute('ALTER TABLE serverinfo ADD COLUMN resetd INTEGER DEFAULT 30 NOT NULL')
                         cursor.execute(self.find_words_table, (serverid,))
                         exists = cursor.fetchone()
@@ -128,7 +128,13 @@ class MyClient(discord.Client):
                     
         # if been 24h since said and not reset
         if (self.words[serverid][1] > 0) and (time.time() >= self.words[serverid][1] + 86400):  # 86400 is 24h
-            await self.get_user(self.words[serverid][2]).send("I haven't heard from you in 24 hours, resetting the word to \"klaxon\"")
+            utosend = self.get_user(self.words[serverid][2])
+            print(utosend)
+            try: # try because if bot is blocked or user not accepting dms, will throw an error (50007)
+                await utosend.send("I haven't heard from you in 24 hours, resetting the word to \"klaxon\"")
+            except discord.HTTPException as e:
+                if e.code == 50007: # cannot send messages to this user
+                    await message.channel.send("I haven't heard from the user in 24 hours, and they've blocked me in the meantime. That's copium for sure. Resetting the word to \"klaxon\"")
             self.words[serverid] = ("klaxon", 0, None, time.time())
             with sqlite3.connect("serverwords.db") as conn:
                 cursor = conn.cursor()
@@ -228,7 +234,15 @@ class MyClient(discord.Client):
                 await message.channel.send("# :camera_with_flash: The Klaxon word \'{0}\' was said by <@{1}> and earned them -10 points! :camera_with_flash:".format(wordsaid, message.author.id), file=discord.File("klaxon_test.mp4", filename="klaxon.mp4"))
             else:
                 await message.channel.send("# :camera_with_flash: The Klaxon word \'{0}\' was said by <@{1}> and earned them -10 points! :camera_with_flash:".format(wordsaid, message.author.id), file=discord.File("klaxon.mp4", filename="klaxon.mp4"))
-            await message.author.send("Please respond with a new Klaxon word. Choose wisely.")
+            try: # try because if bot is blocked or user not accepting dms, will throw an error (50007)
+                await message.author.send("Please respond with a new Klaxon word. Choose wisely.")
+            except discord.HTTPException as e:
+                if e.code == 50007: # cannot send messages to this user
+                    await message.channel.send("I am unable to DM this user. Resetting the word to \"klaxon\".")
+                    self.words[serverid] = ("klaxon", 0, None, time.time())
+                    with sqlite3.connect("serverwords.db") as conn:
+                        cursor = conn.cursor()
+                        cursor.execute(self.update_words_table, ("klaxon", 0, None, time.time(), serverid))
             print("{0} said by {1} in {2}".format(message.content, message.author.name, message.channel.name))
             return
     
