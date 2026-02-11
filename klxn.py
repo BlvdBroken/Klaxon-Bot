@@ -48,14 +48,38 @@ class MyClient(discord.Client):
 
     async def on_ready(self):
         print(f'Logged in as {self.user} (ID: {self.user.id})')
-        print("Klaxon Bot v1.1.1")
+        print("Klaxon Bot v1.1.2")
         # creates a SQLite 3 database if you don't have one
         try:
             with sqlite3.connect("serverwords.db") as conn:
                 print(f"Opened SQLite database with version {sqlite3.sqlite_version} successfully.")
                 cursor = conn.cursor()
+
                 cursor.execute(self.create_words_table)
                 cursor.execute(self.create_serverinfo_table)
+
+                cursor.execute("PRAGMA table_info(words);")
+                cols = {row[1] for row in cursor.fetchall()}
+                if "timeofr" not in cols:
+                    cursor.execute("ALTER TABLE words ADD COLUMN timeofr INTEGER DEFAULT 0 NOT NULL")
+                if "timeofs" not in cols:
+                    cursor.execute("ALTER TABLE words ADD COLUMN timeofs INTEGER DEFAULT 0 NOT NULL")
+                if "word" not in cols:
+                    cursor.execute("ALTER TABLE words ADD COLUMN word TEXT DEFAULT 'klaxon'")
+                if "user" not in cols:
+                    cursor.execute("ALTER TABLE words ADD COLUMN user INTEGER DEFAULT NULL")
+
+                cursor.execute("PRAGMA table_info(serverinfo);")
+                cols = {row[1] for row in cursor.fetchall()}
+                if "prefix" not in cols:
+                    cursor.execute("ALTER TABLE serverinfo ADD COLUMN prefix TEXT DEFAULT 'k!' NOT NULL")
+                if "ignored" not in cols:
+                    cursor.execute("ALTER TABLE serverinfo ADD COLUMN ignored TEXT DEFAULT NULL")
+                if "optedout" not in cols:
+                    cursor.execute("ALTER TABLE serverinfo ADD COLUMN optedout TEXT DEFAULT NULL")
+                if "resetd" not in cols:
+                    cursor.execute("ALTER TABLE serverinfo ADD COLUMN resetd INTEGER DEFAULT 30 NOT NULL")
+
                 conn.commit()
         except sqlite3.OperationalError as e:
             print("Failed to open database:", e)
@@ -91,21 +115,23 @@ class MyClient(discord.Client):
             print("DM from " + str(message.author.display_name))
             return
         
+        # db schema is fully migrated in on_ready so correct layout should be assumed
+
         # if not currently in dictionary of servers (like on bot reset), check if in sql, add if so, make new entry if not
         if serverid not in self.words:
             with sqlite3.connect("serverwords.db") as conn:
                 cursor = conn.cursor()
                 cursor.execute(self.find_words_table, (serverid,))
-                exists = cursor.fetchone()
-                if exists:
-                    if len(exists) != 5:  # hard coded in for every breaking update that changes db entry formnat to make previous db entries backwards compatible
-                        cursor.execute('ALTER TABLE words ADD COLUMN timeofs INTEGER DEFAULT 0 NOT NULL')
-                        cursor.execute('UPDATE words SET timeofs = ? WHERE server_id = ?', (time.time(), serverid))
-                        cursor.execute(self.find_words_table, (serverid,))
-                        exists = cursor.fetchone()
-                    self.words[serverid] = exists[1:]
+                row = cursor.fetchone()
+
+                if row:
+                    self.words[serverid] = row[1:]
                 else:
-                    cursor.execute(self.insert_words_table, (serverid, "klaxon", 0, None, time.time()))
+                    cursor.execute(
+                        self.insert_words_table,
+                        (serverid, "klaxon", 0, None, time.time())
+                    )
+                    conn.commit()
                     self.words[serverid] = ("klaxon", 0, None, time.time())
 
         # same as above but with serverinfo
@@ -113,15 +139,16 @@ class MyClient(discord.Client):
             with sqlite3.connect("serverwords.db") as conn:
                 cursor = conn.cursor()
                 cursor.execute(self.find_serverinfo_table, (serverid,))
-                exists = cursor.fetchone()
-                if exists:
-                    if len(exists) != 5:  # hard coded in for every breaking update that changes db entry format to make previous db entries backwards compatible
-                        cursor.execute('ALTER TABLE serverinfo ADD COLUMN resetd INTEGER DEFAULT 30 NOT NULL')
-                        cursor.execute(self.find_words_table, (serverid,))
-                        exists = cursor.fetchone()
-                    self.serverinfo[serverid] = list(exists[1:])
+                row = cursor.fetchone()
+
+                if row:
+                    self.serverinfo[serverid] = list(row[1:])
                 else:
-                    cursor.execute(self.insert_serverinfo_table, (serverid, "k!", None, None, 30))
+                    cursor.execute(
+                        self.insert_serverinfo_table,
+                        (serverid, "k!", None, None, 30)
+                    )
+                    conn.commit()
                     self.serverinfo[serverid] = ["k!", "", "", 30]
                     
         print(self.words[serverid])  # testing
